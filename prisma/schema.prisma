@@ -1,0 +1,256 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  PROFESSIONAL
+  ADMIN
+}
+
+enum BookingStatus {
+  REQUESTED
+  ACCEPTED
+  CONFIRMED
+  ON_THE_WAY
+  ARRIVED
+  SERVICE_STARTED
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum QuoteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CLARIFICATION_REQUESTED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum DisputeReason {
+  NO_SHOW
+  PRICING
+  POOR_SERVICE
+  WRONG_SERVICE
+  PROPERTY_DAMAGE
+  PAYMENT
+  FRAUD
+  ABUSE
+  OTHER
+}
+
+model User {
+  id                 String         @id @default(uuid())
+  name               String
+  email              String         @unique
+  passwordHash       String
+  role               Role           @default(CUSTOMER)
+  createdAt          DateTime       @default(now())
+  bookings           Booking[]      @relation("BookingCustomer")
+  professional       Professional?
+  favorites          Favorite[]
+  reviews            Review[]
+  disputes           Dispute[]
+  notifications      Notification[]
+  bookingEvents      BookingEvent[]
+  messages           BookingMessage[]
+}
+
+model Category {
+  id            String         @id @default(uuid())
+  name          String         @unique
+  slug          String         @unique
+  icon          String         @default("✨")
+  services      Service[]
+  professionals Professional[]
+}
+
+model Service {
+  id        String    @id @default(uuid())
+  name      String
+  categoryId String
+  category  Category  @relation(fields: [categoryId], references: [id])
+  bookings  Booking[]
+
+  @@unique([categoryId, name])
+}
+
+model Professional {
+  id             String    @id @default(uuid())
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId     String
+  category       Category  @relation(fields: [categoryId], references: [id])
+  businessName   String
+  description    String    @default("")
+  rating         Float     @default(0)
+  reviewsCount   Int       @default(0)
+  completedJobs  Int       @default(0)
+  onTime          Int       @default(0)
+  verified       Boolean   @default(false)
+  priceFrom      Int       @default(0)
+  latitude       Float?
+  longitude      Float?
+  serviceArea    String?   @default("Bengaluru")
+  createdAt      DateTime  @default(now())
+  bookings       Booking[]
+  favorites      Favorite[]
+  reviews        Review[]
+
+  @@index([categoryId, verified, rating])
+}
+
+model Booking {
+  id             String        @id @default(uuid())
+  customerId     String
+  customer       User          @relation("BookingCustomer", fields: [customerId], references: [id])
+  professionalId String?
+  professional   Professional? @relation(fields: [professionalId], references: [id], onDelete: SetNull)
+  serviceId      String
+  service        Service       @relation(fields: [serviceId], references: [id])
+  status         BookingStatus @default(REQUESTED)
+  scheduledAt    DateTime
+  address        String
+  latitude       Float?
+  longitude      Float?
+  problem        String?
+  idempotencyKey String?       @unique
+  arrivalOtpHash String?
+  otpExpiresAt   DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  events         BookingEvent[]
+  quotes         Quote[]
+  payment        Payment?
+  review         Review?
+  disputes       Dispute[]
+  messages       BookingMessage[]
+
+  @@index([customerId, status])
+  @@index([professionalId, scheduledAt, status])
+}
+
+model BookingEvent {
+  id        String   @id @default(uuid())
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  type      String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([bookingId, createdAt])
+}
+
+model Quote {
+  id               String     @id @default(uuid())
+  bookingId        String
+  booking          Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  status           QuoteStatus @default(PENDING)
+  labour           Float
+  parts            Float      @default(0)
+  additional       Float      @default(0)
+  discount         Float      @default(0)
+  total            Float
+  description      String
+  estimatedMinutes Int
+  warrantyDays     Int        @default(0)
+  expiresAt        DateTime
+  createdAt        DateTime   @default(now())
+  resolvedAt       DateTime?
+
+  @@index([bookingId, createdAt])
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  bookingId         String        @unique
+  booking           Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  amount            Float
+  currency          String        @default("INR")
+  provider          String        @default("razorpay-test")
+  status            PaymentStatus @default(PENDING)
+  transactionId     String?
+  providerSignature String?
+  createdAt         DateTime      @default(now())
+  verifiedAt        DateTime?
+}
+
+model Review {
+  id             String       @id @default(uuid())
+  bookingId      String       @unique
+  booking        Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  customerId     String
+  customer       User         @relation(fields: [customerId], references: [id])
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id])
+  rating         Int
+  comment        String?
+  createdAt      DateTime     @default(now())
+}
+
+model Favorite {
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@id([userId, professionalId])
+}
+
+model Dispute {
+  id          String        @id @default(uuid())
+  bookingId   String
+  booking     Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  reporterId  String
+  reporter    User          @relation(fields: [reporterId], references: [id])
+  reason      DisputeReason
+  description String
+  status      DisputeStatus @default(OPEN)
+  createdAt   DateTime      @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  bookingId String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model BookingMessage {
+  id        String   @id @default(uuid())
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  text      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([bookingId, createdAt])
+}

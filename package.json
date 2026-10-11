@@ -1,0 +1,31 @@
+{
+  "name": "opustia",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Trusted local-services marketplace monorepo",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=@opustia/api",
+    "dev:admin": "npm run dev --workspace=@opustia/admin",
+    "dev:mobile": "npm run start --workspace=@opustia/mobile",
+    "dev:mobile:web": "npm run start:web --workspace=@opustia/mobile",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "db:generate": "npm run prisma:generate --workspace=@opustia/api",
+    "db:migrate": "npm run prisma:migrate --workspace=@opustia/api",
+    "db:seed": "npm run prisma:seed --workspace=@opustia/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "~6.0.3"
+  },
+  "engines": {
+    "node": ">=20.18.0",
+    "npm": ">=10.0.0"
+  }
+}

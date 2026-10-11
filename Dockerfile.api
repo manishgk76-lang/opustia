@@ -1,0 +1,39 @@
+# Multi-stage production build for Opustia API Backend
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy package manifests
+COPY package*.json ./
+COPY apps/api/package*.json ./apps/api/
+COPY packages/shared/package*.json ./packages/shared/
+COPY prisma ./prisma
+
+# Install all dependencies including devDependencies for build
+RUN npm install
+
+# Copy source code
+COPY apps/api ./apps/api
+COPY packages/shared ./packages/shared
+
+# Generate Prisma Client and compile TypeScript
+RUN npm run prisma:generate --workspace=@opustia/api
+RUN npm run build --workspace=@opustia/api
+
+# Runner stage
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=4000
+
+# Copy node_modules and built dist
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/apps/api/package*.json ./apps/api/
+COPY --from=builder /app/prisma ./prisma
+
+EXPOSE 4000
+
+CMD ["node", "apps/api/dist/server.js"]

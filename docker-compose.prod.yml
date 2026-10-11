@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: opustia-prod-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: opustia
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-opustia_secure_password}
+      POSTGRES_DB: opustia
+    ports:
+      - "5432:5432"
+    volumes:
+      - opustia_prod_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opustia -d opustia"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: opustia-prod-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://opustia:${POSTGRES_PASSWORD:-opustia_secure_password}@postgres:5432/opustia?schema=public
+      JWT_SECRET: ${JWT_SECRET:-opustia_prod_jwt_secret_key_change_in_production}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-opustia_prod_jwt_secret_key_change_in_production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-opustia_prod_jwt_refresh_secret_key_change_in_production}
+    ports:
+      - "4000:4000"
+
+volumes:
+  opustia_prod_pgdata:

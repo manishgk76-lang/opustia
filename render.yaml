@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: opustia-api
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run prisma:generate --workspace=@opustia/api && npm run build --workspace=@opustia/api
+    startCommand: npm run start --workspace=@opustia/api
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
