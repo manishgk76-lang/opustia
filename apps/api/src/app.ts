@@ -14,7 +14,7 @@ import { prisma } from './db';
 type Actor = { sub: string; role: 'CUSTOMER' | 'PROFESSIONAL' | 'ADMIN'; name: string; email: string };
 type AuthRequest = Request & { user?: Actor };
 type AsyncHandler = (req: AuthRequest, res: Response, next: NextFunction) => unknown;
-const route = (handler: AsyncHandler): RequestHandler => (req, res, next) => {
+const route = (handler: AsyncHandler): RequestHandler => (req: Request, res: Response, next: NextFunction) => {
   Promise.resolve(handler(req as AuthRequest, res, next)).catch(next);
 };
 const app = express();
@@ -143,8 +143,8 @@ function canAccessBooking(actor: Actor, booking: { customerId: string; professio
   return actor.role === 'ADMIN' || actor.sub === booking.customerId || (actor.role === 'PROFESSIONAL' && actor.sub === booking.professional?.userId);
 }
 
-app.get('/health', (_req, res) => res.json({ success: true, message: 'Opustia API is running' }));
-app.get('/', (_req, res) => res.json({ success: true, name: 'Opustia API', message: 'Backend is running', health: '/health', docs: { categories: '/api/categories', professionals: '/api/professionals' } }));
+app.get('/health', (_req: Request, res: Response) => res.json({ success: true, message: 'Opustia API is running' }));
+app.get('/', (_req: Request, res: Response) => res.json({ success: true, name: 'Opustia API', message: 'Backend is running', health: '/health', docs: { categories: '/api/categories', professionals: '/api/professionals' } }));
 
 app.post('/api/auth/register', route(async (req, res) => {
   const parsed = z.object({ name: z.string().min(2), email: z.string().email(), password: z.string().min(6), role: z.enum(['CUSTOMER', 'PROFESSIONAL']).default('CUSTOMER') }).safeParse(req.body);
