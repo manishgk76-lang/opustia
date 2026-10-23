@@ -1,8 +1,0 @@
-node_modules
-.git
-.github
-dist
-.expo
-.system_generated
-*.log
-scratch
